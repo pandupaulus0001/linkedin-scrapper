@@ -94,7 +94,8 @@ async function syncCloudData() {
   if (!supabase || !state.session) return
   const { data: rows } = await supabase.from('shared_jobs').select('*').order('created_at', { ascending: false }).limit(100)
   const known = new Set((rows || []).map(j => j.id))
-  const offline = state.jobs.filter(j => !known.has(j.id))
+  const knownUrls = new Set((rows || []).map(j => j.url))
+  const offline = state.jobs.filter(j => !known.has(j.id) && !knownUrls.has(j.url))
   if (offline.length) {
     const { error } = await supabase.from('shared_jobs').upsert(offline.map(j => ({ id: j.id, title: j.title, company: j.company, location: j.location, workplace: j.workplace, description: j.description, url: j.url, tags: j.tags })), { onConflict: 'url', ignoreDuplicates: true })
     if (error) showToast('Beberapa lowongan lokal belum tersinkron.')
@@ -102,7 +103,8 @@ async function syncCloudData() {
   const { data: freshRows } = await supabase.from('shared_jobs').select('*').order('created_at', { ascending: false }).limit(100)
   if (freshRows) {
     const existing = new Set(state.jobs.map(j => j.id))
-    const incoming = freshRows.filter(j => !existing.has(j.id)).map(j => ({ ...j, type: 'Magang', salary: 'Belum dicantumkan', posted: 'Baru ditambahkan', tags: j.tags || ['Mahasiswa S1', 'Magang'], accent: 'mint' } as Job))
+    const existingUrls = new Set(state.jobs.map(j => j.url))
+    const incoming = freshRows.filter(j => !existing.has(j.id) && !existingUrls.has(j.url)).map(j => ({ ...j, type: 'Magang', salary: 'Belum dicantumkan', posted: 'Baru ditambahkan', tags: j.tags || ['Mahasiswa S1', 'Magang'], accent: 'mint' } as Job))
     state.jobs = [...incoming, ...state.jobs]
   }
   const { data: saved } = await supabase.from('shared_saved_jobs').select('job_id,stage')
