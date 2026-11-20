@@ -2,5 +2,9 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "magangrad",
   "compatibility_date": "2026-11-20",
+  "vars": {
+    "VITE_SUPABASE_URL": "https://dhvxntgikxpcfifdevaw.supabase.co",
+    "VITE_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_OZFzDsHcaYy0hIjP_5qxmw_VAP0PCVP"
+  },
   "pages_build_output_dir": "./dist"
 }
