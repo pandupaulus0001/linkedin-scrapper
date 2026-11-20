@@ -105,12 +105,11 @@ async function syncCloudData() {
   }
   const { data: freshRows } = await supabase.from('shared_jobs').select('*').order('created_at', { ascending: false }).limit(100)
   if (freshRows) {
-    const existing = new Set(state.jobs.map(j => j.id))
-    const existingUrls = new Set(state.jobs.map(j => j.url))
-    const incoming = freshRows.filter(j => !existing.has(j.id) && !existingUrls.has(j.url)).map(j => ({ ...j, type: 'Magang', salary: 'Belum dicantumkan', posted: 'Baru ditambahkan', tags: j.tags || ['Mahasiswa S1', 'Magang'], accent: 'mint' } as Job))
-    const scoredRows = new Map(freshRows.map(j => [j.id, j]))
-    const refreshed = state.jobs.map(job => { const cloud = scoredRows.get(job.id); return cloud ? { ...job, match_score: cloud.match_score, match_level: cloud.match_level, match_reason: cloud.match_reason, match_caveat: cloud.match_caveat } as Job : job })
-    state.jobs = [...incoming, ...refreshed]
+    const localByUrl = new Map(state.jobs.map(job => [job.url, job]))
+    const cloudJobs = freshRows.map(cloud => ({ ...localByUrl.get(cloud.url), ...cloud, type: 'Magang', salary: 'Belum dicantumkan', posted: localByUrl.get(cloud.url)?.posted || 'Baru ditambahkan', tags: cloud.tags || ['Mahasiswa S1', 'Magang'], accent: 'mint' } as Job))
+    const cloudUrls = new Set(freshRows.map(job => job.url))
+    const unmatchedOffline = offline.filter(job => !cloudUrls.has(job.url))
+    state.jobs = [...cloudJobs, ...unmatchedOffline]
   }
   const { data: saved } = await supabase.from('shared_saved_jobs').select('job_id,stage')
   if (saved) saved.forEach((s: Saved) => { state.saved[s.job_id] = s.stage })
