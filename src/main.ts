@@ -22,7 +22,7 @@ const demoJobs: Job[] = [
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined
-const supabase: SupabaseClient | null = SUPABASE_URL && SUPABASE_KEY ? createClient(SUPABASE_URL, SUPABASE_KEY) : null
+let supabase: SupabaseClient | null = SUPABASE_URL && SUPABASE_KEY ? createClient(SUPABASE_URL, SUPABASE_KEY) : null
 const stageLabels: Record<Stage, string> = { saved: 'Tersimpan', applied: 'Dilamar', interview: 'Interview', closed: 'Selesai' }
 const storageKey = 'magangrad:v1'
 const state = { jobs: [...demoJobs] as Job[], saved: {} as Record<string, Stage>, query: '', activeTab: 'all', filter: 'Semua tipe', session: null as Awaited<ReturnType<NonNullable<typeof supabase>['auth']['getSession']>>['data']['session'] | null, modal: false, authModal: false }
@@ -125,6 +125,15 @@ async function syncCloudData() {
 }
 
 async function start() {
+  if (!supabase) {
+    try {
+      const response = await fetch('/api/config')
+      if (response.ok) {
+        const config = await response.json() as { supabaseUrl?: string; publishableKey?: string }
+        if (config.supabaseUrl && config.publishableKey) supabase = createClient(config.supabaseUrl, config.publishableKey)
+      }
+    } catch { /* use local-only mode when the runtime config is unavailable */ }
+  }
   localState()
   if (supabase) {
     const { data } = await supabase.auth.getSession(); state.session = data.session
