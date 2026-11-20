@@ -43,11 +43,12 @@ The search button opens LinkedIn's job search with the current keywords and Jabo
 
 ## AI agent API
 
-Cloudflare Pages Functions exposes an authenticated API for AI agents that support OpenAPI or direct HTTP tools:
+Cloudflare Pages Functions exposes two authenticated integration options for AI agents:
 
 - `GET /api/agent/openapi.json` — machine-readable API schema.
 - `GET /api/agent/jobs?limit=30` — read recent shared listings.
 - `POST /api/agent/jobs` — add a listing to the shared board. Duplicate URLs are ignored.
+- `POST /mcp` — stateless Streamable HTTP MCP server with `list_shared_jobs` and `add_shared_job` tools.
 
 New AI-submitted listings are left without a match score because the current score is specific to Maria's profile. Agents should submit original job links and verified listing details; this API does not crawl LinkedIn.
 
@@ -62,7 +63,26 @@ The Supabase URL comes from the existing `VITE_SUPABASE_URL` setting. The browse
 
 ### Connect an AI agent
 
-In the agent's API/Action tools, import `https://magangrad.pages.dev/api/agent/openapi.json`, choose HTTP Bearer authentication, and enter the token stored as `MAGANGRAD_AGENT_TOKENS`. In the agent's instructions, ask it to check recent listings first, submit only verified internship listings in/near Jabodetabek, and include the original job URL. Keep the token in the connector's secret field, not in the agent's general prompt.
+For an OpenAPI Action, import `https://magangrad.pages.dev/api/agent/openapi.json`, choose HTTP Bearer authentication, and enter the token stored as `MAGANGRAD_AGENT_TOKENS`.
+
+For MCP clients, use `https://magangrad.pages.dev/mcp` with the same Bearer token. Example Antigravity `mcp_config.json` entry:
+
+```json
+{
+  "mcpServers": {
+    "magangrad": {
+      "serverUrl": "https://magangrad.pages.dev/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_MAGANGRAD_AGENT_TOKEN"
+      }
+    }
+  }
+}
+```
+
+For Claude Code, add the remote MCP server with `claude mcp add --transport http magangrad https://magangrad.pages.dev/mcp --header "Authorization: Bearer YOUR_MAGANGRAD_AGENT_TOKEN"`. Claude.ai web custom connectors generally use OAuth, which is not part of this static-token endpoint.
+
+In any agent's instructions, ask it to check recent listings first, submit only verified internship listings in/near Jabodetabek, and include the original job URL. Keep the token in the connector's secret field or local MCP configuration, not in the agent's general prompt.
 
 Example request body:
 

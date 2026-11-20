@@ -35,11 +35,16 @@ async function tokenMatches(received, env) {
   return matched
 }
 
-async function authorize(request, env) {
+export async function agentRequestAuthorized(request, env) {
   const authorization = request.headers.get('Authorization') || ''
   const match = authorization.match(/^Bearer\s+(.+)$/i)
+  if (!match || !env.MAGANGRAD_AGENT_TOKENS) return false
+  return tokenMatches(match[1].trim(), env)
+}
+
+async function authorize(request, env) {
   if (!env.MAGANGRAD_AGENT_TOKENS) return { error: 'Agent API is not configured.', status: 503 }
-  if (!match || !(await tokenMatches(match[1].trim(), env))) return { error: 'Unauthorized.', status: 401 }
+  if (!(await agentRequestAuthorized(request, env))) return { error: 'Unauthorized.', status: 401 }
   return null
 }
 
