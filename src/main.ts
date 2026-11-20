@@ -2,7 +2,7 @@ import './style.css'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 type Stage = 'saved' | 'applied' | 'interview' | 'closed'
-type Job = { id: string; title: string; company: string; location: string; workplace: string; type: string; salary: string; posted: string; description: string; url: string; tags: string[]; accent: string; demo?: boolean }
+type Job = { id: string; title: string; company: string; location: string; workplace: string; type: string; salary: string; posted: string; description: string; url: string; tags: string[]; accent: string }
 type Saved = { job_id: string; stage: Stage; notes?: string }
 
 const icon = (name: string, size = 18) => {
@@ -12,24 +12,16 @@ const icon = (name: string, size = 18) => {
   return `<svg class="icon" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.search}</svg>`
 }
 
-const demoJobs: Job[] = [
-  { id: 'sample-1', title: 'People & Culture Intern', company: 'Akar Inti Enterprise', location: 'Jakarta Selatan', workplace: 'On-site', type: 'Magang', salary: 'Rp 2,5–3 jt / bulan', posted: '2 hari lalu', description: 'Bantu tim people membangun pengalaman kerja yang lebih baik. Cocok untuk mahasiswa Psikologi, Manajemen, atau bidang terkait.', url: 'https://www.linkedin.com/jobs/search/?keywords=People%20Culture%20Intern&location=Jakarta', tags: ['Mahasiswa S1', 'HR', 'Komunikasi'], accent: 'mint', demo: true },
-  { id: 'sample-2', title: 'Marketing & Social Media Intern', company: 'Kopi Kenangan', location: 'Jakarta Pusat', workplace: 'Hybrid', type: 'Magang', salary: 'Berbayar', posted: '3 hari lalu', description: 'Berkolaborasi dalam kampanye digital, konten sosial media, dan riset tren konsumen.', url: 'https://www.linkedin.com/jobs/search/?keywords=Marketing%20Intern&location=Jakarta', tags: ['Mahasiswa S1', 'Marketing', 'Hybrid'], accent: 'peach', demo: true },
-  { id: 'sample-3', title: 'Business Development Intern', company: 'Mekari', location: 'Jakarta Selatan', workplace: 'Hybrid', type: 'Magang', salary: 'Rp 3 jt / bulan', posted: '4 hari lalu', description: 'Jelajahi strategi pertumbuhan B2B bersama tim yang bergerak cepat. Terbuka untuk mahasiswa tingkat akhir.', url: 'https://www.linkedin.com/jobs/search/?keywords=Business%20Development%20Intern&location=Jakarta', tags: ['Mahasiswa S1', 'Business', 'Hybrid'], accent: 'lavender', demo: true },
-  { id: 'sample-4', title: 'UI/UX Design Intern', company: 'JULO', location: 'Jakarta Selatan', workplace: 'On-site', type: 'Magang', salary: 'Berbayar', posted: '5 hari lalu', description: 'Bantu merancang pengalaman produk finansial yang mudah digunakan melalui riset dan prototyping.', url: 'https://www.linkedin.com/jobs/search/?keywords=UI%20UX%20Design%20Intern&location=Jakarta', tags: ['Mahasiswa S1', 'Design', 'Figma'], accent: 'blue', demo: true },
-  { id: 'sample-5', title: 'Data Analyst Intern', company: 'Traveloka', location: 'Tangerang', workplace: 'Hybrid', type: 'Magang', salary: 'Rp 3–4 jt / bulan', posted: '1 minggu lalu', description: 'Dukung pengambilan keputusan berbasis data dengan analisis produk, dashboard, dan eksperimen.', url: 'https://www.linkedin.com/jobs/search/?keywords=Data%20Analyst%20Intern&location=Tangerang', tags: ['Mahasiswa S1', 'Data', 'SQL'], accent: 'yellow', demo: true },
-]
-
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined
 let supabase: SupabaseClient | null = SUPABASE_URL && SUPABASE_KEY ? createClient(SUPABASE_URL, SUPABASE_KEY) : null
 const stageLabels: Record<Stage, string> = { saved: 'Tersimpan', applied: 'Dilamar', interview: 'Interview', closed: 'Selesai' }
 const storageKey = 'magangrad:v1'
-const state = { jobs: [...demoJobs] as Job[], saved: {} as Record<string, Stage>, query: '', activeTab: 'all', filter: 'Semua tipe', session: null as Awaited<ReturnType<NonNullable<typeof supabase>['auth']['getSession']>>['data']['session'] | null, modal: false, authModal: false }
+const state = { jobs: [] as Job[], saved: {} as Record<string, Stage>, query: '', activeTab: 'all', filter: 'Semua tipe', session: null as Awaited<ReturnType<NonNullable<typeof supabase>['auth']['getSession']>>['data']['session'] | null, modal: false, authModal: false }
 
 const root = document.querySelector<HTMLDivElement>('#app')!
-const localState = () => { try { const d = JSON.parse(localStorage.getItem(storageKey) || '{}'); state.jobs = [...demoJobs, ...(d.jobs || [])]; state.saved = d.saved || {} } catch { /* fresh local state */ } }
-const saveLocal = () => localStorage.setItem(storageKey, JSON.stringify({ jobs: state.jobs.filter(j => !j.demo), saved: state.saved }))
+const localState = () => { try { const d = JSON.parse(localStorage.getItem(storageKey) || '{}'); state.jobs = d.jobs || []; state.saved = Object.fromEntries(Object.entries(d.saved || {}).filter(([id, stage]) => !id.startsWith('sample-') && ['saved', 'applied', 'interview', 'closed'].includes(String(stage)))) as Record<string, Stage> } catch { /* fresh local state */ } }
+const saveLocal = () => localStorage.setItem(storageKey, JSON.stringify({ jobs: state.jobs, saved: state.saved }))
 const esc = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
 const liSearch = () => `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(state.query || 'magang mahasiswa OR internship')}&location=Jabodetabek%2C%20Indonesia`
 
@@ -59,14 +51,14 @@ function render() {
       </main>
       <aside class="right-rail"><div class="rail-top"><span class="rail-label">RINGKASAN MINGGU INI</span><span class="week-badge">MINGGU INI</span></div><div class="stat"><span>Total lowongan</span><strong>${state.jobs.length}</strong><small>yang tersedia di sini</small></div><div class="stat"><span>Disimpan</span><strong>${Object.keys(state.saved).length}</strong><small>untuk ditinjau kembali</small></div><div class="rail-divider"></div><div class="rail-label">PREFERENSI PENCARIAN</div><div class="search-pref"><div class="pref-icon">${icon('grad',15)}</div><div><strong>Internship / Magang</strong><span>Mahasiswa S1 · Entry level</span></div></div><div class="search-pref"><div class="pref-icon green">${icon('pin',15)}</div><div><strong>Jabodetabek</strong><span>Jakarta & sekitarnya</span></div></div><div class="rail-tip"><div class="tip-spark">${icon('spark',15)}</div><div class="rail-label">CATATAN KECIL</div><p>Sesuaikan profil LinkedIn-mu dengan posisi yang kamu incar. Ceritakan apa yang sedang kamu pelajari.</p></div><div class="data-note"><span class="status-dot"></span>${supabase ? 'Terhubung ke Supabase' : 'Mode contoh · tersimpan di perangkat'}</div></aside>
     </div>
-    <div class="modal-backdrop ${state.modal ? '' : 'hidden'}" id="job-modal"><div class="modal"><button class="modal-close" data-close>${icon('close')}</button><div class="eyebrow">CATAT LOWONGAN</div><h3>Tambahkan kesempatan baru</h3><p class="modal-sub">Masukkan detail dari lowongan yang kamu temukan. Datamu tersimpan privat.</p><form id="job-form"><label>Nama posisi<input name="title" required placeholder="Contoh: Marketing Intern"></label><label>Perusahaan<input name="company" required placeholder="Nama perusahaan"></label><div class="form-grid"><label>Lokasi<input name="location" required placeholder="Jakarta Selatan"></label><label>Model kerja<select name="workplace"><option>Hybrid</option><option>On-site</option><option>Remote</option></select></label></div><label>Tautan lowongan LinkedIn<input name="url" type="url" pattern="https://(www\.)?linkedin\.com/jobs/.*" title="Gunakan tautan pekerjaan LinkedIn." required placeholder="https://www.linkedin.com/jobs/view/..."></label><label>Catatan / deskripsi<textarea name="description" rows="3" placeholder="Kualifikasi, stipend, atau catatanmu"></textarea></label><button class="submit-button" type="submit">${icon('check',16)} Simpan lowongan</button></form><p class="privacy-note">${icon('link',13)} Tautan akan dibuka langsung di LinkedIn.</p></div></div>
+    <div class="modal-backdrop ${state.modal ? '' : 'hidden'}" id="job-modal"><div class="modal"><button class="modal-close" data-close>${icon('close')}</button><div class="eyebrow">CATAT LOWONGAN</div><h3>Tambahkan kesempatan baru</h3><p class="modal-sub">Lowongan, tahapan, dan catatan dibagikan ke semua akun yang masuk.</p><form id="job-form"><label>Nama posisi<input name="title" required placeholder="Contoh: Finance Intern"></label><label>Perusahaan<input name="company" required placeholder="Nama perusahaan"></label><div class="form-grid"><label>Lokasi<input name="location" required placeholder="Jakarta Selatan"></label><label>Model kerja<select name="workplace"><option>On-site</option><option>Hybrid</option><option>Remote</option></select></label></div><label>Tautan lowongan<input name="url" type="url" pattern="https://.+" title="Gunakan tautan aman yang dimulai dengan https://." required placeholder="https://.../internship"></label><label>Catatan / deskripsi<textarea name="description" rows="3" placeholder="Kualifikasi, periode, deadline, atau catatan"></textarea></label><button class="submit-button" type="submit">${icon('check',16)} Simpan lowongan</button></form><p class="privacy-note">${icon('link',13)} Tautan akan dibuka langsung ke halaman rekrutmen.</p></div></div>
     <div class="modal-backdrop ${state.authModal ? '' : 'hidden'}" id="auth-modal"><div class="modal auth-modal"><button class="modal-close" data-close>${icon('close')}</button><div class="eyebrow">${supabase ? 'SINKRONISASI' : 'PENGATURAN'}</div><h3>${state.session ? 'Akun tersambung' : supabase ? 'Simpan progresmu' : 'Hubungkan Supabase'}</h3><p class="modal-sub">${state.session ? `Masuk sebagai ${esc(state.session.user.email || '')}` : supabase ? 'Masuk lewat tautan sekali pakai yang kami kirim ke emailmu.' : 'Atur URL dan publishable key Supabase di file .env untuk sinkronisasi lintas perangkat.'}</p>${state.session ? `<button class="submit-button secondary" id="sign-out">Keluar</button>` : supabase ? `<form id="auth-form"><label>Email<input type="email" name="email" required placeholder="nama@email.com"></label><button class="submit-button" type="submit">${icon('send',16)} Kirim tautan masuk</button></form>` : `<div class="config-hint"><code>VITE_SUPABASE_URL</code><code>VITE_SUPABASE_PUBLISHABLE_KEY</code></div><p class="privacy-note">Tanpa konfigurasi, progres disimpan di browser ini saja.</p>`}<div id="auth-message" class="auth-message"></div></div></div>
     <div class="toast hidden" id="toast"></div>`
   bind();
 }
 
 function jobCard(j: Job) {
-  return `<article class="job-card"><div class="company-logo ${j.accent}">${esc(j.company.slice(0,1))}</div><div class="job-main"><div class="job-topline"><div><h3>${esc(j.title)}</h3><div class="company-line">${esc(j.company)}</div></div><button class="save-button ${state.saved[j.id] ? 'is-saved' : ''}" data-save="${esc(j.id)}" aria-label="Simpan lowongan">${icon('bookmark',18)}</button></div><div class="job-meta"><span>${icon('pin',14)} ${esc(j.location)}</span><span class="meta-sep">·</span><span>${esc(j.workplace)}</span><span class="meta-sep">·</span><span>${esc(j.type)}</span><span class="meta-sep">·</span><span>${icon('clock',13)} ${esc(j.posted)}</span></div><p class="job-description">${esc(j.description)}</p><div class="tag-row">${j.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}<span class="salary">${esc(j.salary)}</span></div></div><div class="job-actions"><a href="${esc(j.url)}" target="_blank" rel="noreferrer" class="view-job">Lihat lowongan ${icon('external',14)}</a><div class="job-action-bottom"><span class="job-source">${j.demo ? 'CONTOH' : 'DITAMBAHKAN'}</span>${state.saved[j.id] ? `<select class="stage-select" data-stage="${esc(j.id)}" aria-label="Tahap lamaran">${Object.entries(stageLabels).map(([key, label]) => `<option value="${key}" ${state.saved[j.id] === key ? 'selected' : ''}>${label}</option>`).join('')}</select>` : ''}</div></div></article>`
+  return `<article class="job-card"><div class="company-logo ${j.accent}">${esc(j.company.slice(0,1))}</div><div class="job-main"><div class="job-topline"><div><h3>${esc(j.title)}</h3><div class="company-line">${esc(j.company)}</div></div><button class="save-button ${state.saved[j.id] ? 'is-saved' : ''}" data-save="${esc(j.id)}" aria-label="Simpan lowongan">${icon('bookmark',18)}</button></div><div class="job-meta"><span>${icon('pin',14)} ${esc(j.location)}</span><span class="meta-sep">·</span><span>${esc(j.workplace)}</span><span class="meta-sep">·</span><span>${esc(j.type)}</span><span class="meta-sep">·</span><span>${icon('clock',13)} ${esc(j.posted)}</span></div><p class="job-description">${esc(j.description)}</p><div class="tag-row">${j.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}<span class="salary">${esc(j.salary)}</span></div></div><div class="job-actions"><a href="${esc(j.url)}" target="_blank" rel="noreferrer" class="view-job">Lihat lowongan ${icon('external',14)}</a><div class="job-action-bottom"><span class="job-source">${new URL(j.url).hostname.includes('linkedin.com') ? 'LINKEDIN' : 'SUMBER RESMI'}</span>${state.saved[j.id] ? `<select class="stage-select" data-stage="${esc(j.id)}" aria-label="Tahap lamaran">${Object.entries(stageLabels).map(([key, label]) => `<option value="${key}" ${state.saved[j.id] === key ? 'selected' : ''}>${label}</option>`).join('')}</select>` : ''}</div></div></article>`
 }
 
 function showToast(message: string) { const el = document.querySelector('#toast')!; el.textContent = message; el.classList.remove('hidden'); setTimeout(() => el.classList.add('hidden'), 2600) }
@@ -78,12 +70,12 @@ function bind() {
   document.querySelectorAll<HTMLElement>('[data-filter]').forEach(el => el.onclick = () => { state.filter = el.dataset.filter || 'Semua tipe'; render() })
   document.querySelectorAll<HTMLElement>('[data-save]').forEach(el => el.onclick = async () => {
     const id = el.dataset.save!; if (state.saved[id]) delete state.saved[id]; else state.saved[id] = 'saved'; saveLocal()
-    if (supabase && state.session && !id.startsWith('sample-')) { const result = state.saved[id] ? await supabase.from('saved_jobs').upsert({ user_id: state.session.user.id, job_id: id, stage: 'saved' }) : await supabase.from('saved_jobs').delete().eq('user_id', state.session.user.id).eq('job_id', id); if (result.error) showToast('Perubahan lokal tersimpan; sinkronisasi gagal.') }
+    if (supabase && state.session) { const result = state.saved[id] ? await supabase.from('shared_saved_jobs').upsert({ job_id: id, stage: 'saved' }) : await supabase.from('shared_saved_jobs').delete().eq('job_id', id); if (result.error) showToast('Perubahan lokal tersimpan; sinkronisasi gagal.') }
     render()
   })
   document.querySelectorAll<HTMLSelectElement>('[data-stage]').forEach(el => el.onchange = async () => {
     const id = el.dataset.stage!; const stage = el.value as Stage; state.saved[id] = stage; saveLocal()
-    if (supabase && state.session && !id.startsWith('sample-')) { const { error } = await supabase.from('saved_jobs').upsert({ user_id: state.session.user.id, job_id: id, stage }); if (error) showToast('Tahap disimpan di perangkat, sinkronisasi gagal.') }
+    if (supabase && state.session) { const { error } = await supabase.from('shared_saved_jobs').upsert({ job_id: id, stage }); if (error) showToast('Tahap disimpan di perangkat, sinkronisasi gagal.') }
     render()
   })
   document.querySelectorAll<HTMLElement>('#add-job').forEach(el => el.onclick = () => { state.modal = true; render() })
@@ -91,7 +83,7 @@ function bind() {
   document.querySelectorAll<HTMLElement>('[data-close]').forEach(el => el.onclick = () => { state.modal = false; state.authModal = false; render() })
   document.querySelectorAll<HTMLElement>('.modal-backdrop').forEach(el => el.addEventListener('click', e => { if (e.target === el) { state.modal = false; state.authModal = false; render() } }))
   document.querySelector<HTMLFormElement>('#job-form')?.addEventListener('submit', async e => { e.preventDefault(); const f = new FormData(e.currentTarget as HTMLFormElement); const job: Job = { id: crypto.randomUUID(), title: String(f.get('title')), company: String(f.get('company')), location: String(f.get('location')), workplace: String(f.get('workplace')), type: 'Magang', salary: 'Belum dicantumkan', posted: 'Baru ditambahkan', description: String(f.get('description') || 'Lowongan yang kamu catat.'), url: String(f.get('url')), tags: ['Mahasiswa S1', 'Magang'], accent: 'mint' }
-    if (supabase && state.session) { const { error } = await supabase.from('jobs').insert({ id: job.id, title: job.title, company: job.company, location: job.location, workplace: job.workplace, description: job.description, url: job.url, user_id: state.session.user.id }); if (error) { showToast(`Gagal menyimpan: ${error.message}`); return } }
+    if (supabase && state.session) { const { error } = await supabase.from('shared_jobs').insert({ id: job.id, title: job.title, company: job.company, location: job.location, workplace: job.workplace, description: job.description, url: job.url, tags: job.tags }); if (error) { showToast(error.code === '23505' ? 'Lowongan ini sudah ada di daftar bersama.' : `Gagal menyimpan: ${error.message}`); return } }
     state.jobs.unshift(job); saveLocal(); state.modal = false; render(); showToast('Lowongan berhasil dicatat.')
   })
   document.querySelector<HTMLFormElement>('#auth-form')?.addEventListener('submit', async e => { e.preventDefault(); if (!supabase) return; const email = String(new FormData(e.currentTarget as HTMLFormElement).get('email')); const button = (e.currentTarget as HTMLFormElement).querySelector('button')!; button.disabled = true; const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin } }); button.disabled = false; document.querySelector('#auth-message')!.textContent = error ? error.message : 'Tautan masuk sudah dikirim. Cek kotak masuk emailmu.' })
@@ -100,25 +92,24 @@ function bind() {
 
 async function syncCloudData() {
   if (!supabase || !state.session) return
-  const userId = state.session.user.id
-  const { data: rows } = await supabase.from('jobs').select('*').order('created_at', { ascending: false }).limit(100)
+  const { data: rows } = await supabase.from('shared_jobs').select('*').order('created_at', { ascending: false }).limit(100)
   const known = new Set((rows || []).map(j => j.id))
-  const offline = state.jobs.filter(j => !j.demo && !known.has(j.id))
+  const offline = state.jobs.filter(j => !known.has(j.id))
   if (offline.length) {
-    const { error } = await supabase.from('jobs').insert(offline.map(j => ({ id: j.id, user_id: userId, title: j.title, company: j.company, location: j.location, workplace: j.workplace, description: j.description, url: j.url })))
+    const { error } = await supabase.from('shared_jobs').upsert(offline.map(j => ({ id: j.id, title: j.title, company: j.company, location: j.location, workplace: j.workplace, description: j.description, url: j.url, tags: j.tags })), { onConflict: 'url', ignoreDuplicates: true })
     if (error) showToast('Beberapa lowongan lokal belum tersinkron.')
   }
-  const { data: freshRows } = await supabase.from('jobs').select('*').order('created_at', { ascending: false }).limit(100)
+  const { data: freshRows } = await supabase.from('shared_jobs').select('*').order('created_at', { ascending: false }).limit(100)
   if (freshRows) {
     const existing = new Set(state.jobs.map(j => j.id))
-    const incoming = freshRows.filter(j => !existing.has(j.id)).map(j => ({ ...j, type: 'Magang', salary: 'Belum dicantumkan', posted: 'Baru ditambahkan', tags: ['Mahasiswa S1', 'Magang'], accent: 'mint' } as Job))
+    const incoming = freshRows.filter(j => !existing.has(j.id)).map(j => ({ ...j, type: 'Magang', salary: 'Belum dicantumkan', posted: 'Baru ditambahkan', tags: j.tags || ['Mahasiswa S1', 'Magang'], accent: 'mint' } as Job))
     state.jobs = [...incoming, ...state.jobs]
   }
-  const { data: saved } = await supabase.from('saved_jobs').select('job_id,stage').eq('user_id', userId)
+  const { data: saved } = await supabase.from('shared_saved_jobs').select('job_id,stage')
   if (saved) saved.forEach((s: Saved) => { state.saved[s.job_id] = s.stage })
-  const localSaved = Object.entries(state.saved).filter(([id]) => !id.startsWith('sample-') && !saved?.some(s => s.job_id === id))
+  const localSaved = Object.entries(state.saved).filter(([id]) => !saved?.some(s => s.job_id === id))
   if (localSaved.length) {
-    const { error } = await supabase.from('saved_jobs').upsert(localSaved.map(([job_id, stage]) => ({ user_id: userId, job_id, stage })))
+    const { error } = await supabase.from('shared_saved_jobs').upsert(localSaved.map(([job_id, stage]) => ({ job_id, stage })))
     if (error) showToast('Beberapa lowongan tersimpan belum tersinkron.')
   }
   saveLocal()
